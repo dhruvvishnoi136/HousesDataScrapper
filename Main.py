@@ -1,4 +1,5 @@
-from time import sleep
+# d: && cd me\#\python\HousesDataScrapper && python -u "d:\ME\#\PYTHON\HousesDataScrapper\Main.py"
+from time import sleep, time
 import io
 import mysql.connector as databaseConn
 from bs4 import BeautifulSoup
@@ -7,8 +8,9 @@ from selenium import webdriver
 import selenium.common.exceptions as selExec
 import random
 def fetchAllLinks(driver:webdriver.Chrome):
+    startTimeFetchingLinks = time()
     totalNumberOfPages = 0
-    linksFileObj = io.open("./assets/AllPagesLinks.txt", "w", encoding = "utf-8")
+    linksFileObj = io.open(file = "./assets/AllPagesLinks.txt", mode = "w", encoding = "utf-8")
     driver.get("https://www.99acres.com/")
     driver.maximize_window()
     # Search for specific location and get counter 
@@ -96,19 +98,61 @@ def fetchAllLinks(driver:webdriver.Chrome):
         
         print(f"Page Number:- {pageIterator}")
         pageIterator -= 1
-        
-
+    print(f"Time Taken while Fetching Links:- {(time() - startTimeFetchingLinks)/60}")
 
 # Stage 2
-def fetchData(htmlDatagram):
-    return
+def fetchData(driver:webdriver.Chrome):
+    startTimeFetchingData = time()
+    driver.maximize_window()
+    linksFileObj = io.open(file = "./assets/allPagesLinks.txt", mode = 'r', encoding = "utf-8")
+    dataDivFramesFileObj = io.open("./assets/dataDivFrames.txt", mode = 'a', encoding = "utf-8")
+    dataTableFramesFileObj = io.open("./assets/dataTablesFrames.txt", mode = 'a', encoding = "utf-8")
+    for link in linksFileObj.readlines():
+        print(f"\nFetching Link:- {link}")
+        sleep(random.randrange(1,7))
+        driver.get(str(link))
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        new_height = 0
+        while new_height != last_height:
+            last_height = new_height
+            for i in range(1, last_height):
+                sleep(random.uniform(0.125,1))
+                temp = i * 1000
+                if temp < last_height:
+                    i = temp
+                    driver.execute_script(f"window.scrollTo(0, {i});")
+                else:
+                    break
+            new_height = driver.execute_script("return document.body.scrollHeight")
 
+        # Extracting data frames of link 
+        sleep(3)
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        dataDivFrames = soup.find_all(name = "div", attrs = {"class" : "projectTuple__descCont"})
+        dataTablesFrames = soup.find_all(name = "table", attrs = {"class" : "false"})
+
+        print("Length of dataDivFrames:- " + str(len(dataDivFrames)))
+        print("Length of dataTablesFrames:- " + str(len(dataTablesFrames)))
+        for divFrames in dataDivFrames:
+            dataDivFramesFileObj.write(str(divFrames) + "\n")
+        for tableFrames in dataTablesFrames:
+            dataTableFramesFileObj.write(str(tableFrames) + "\n")
+        dataDivFramesFileObj.flush()
+        fsync(dataDivFramesFileObj.fileno())
+        dataTableFramesFileObj.flush()
+        fsync(dataTableFramesFileObj.fileno())
+
+    linksFileObj.close()
+    dataDivFramesFileObj.close()
+    dataTableFramesFileObj.close()
+    print(f"Time Taken while Fetching Data:- {(time() - startTimeFetchingData)}")
 # Stage 3
-def cleaner(htmlDatagram):
-    return
+def cleaner(dataTagsList:list):
+    startTimeCleaner = time()
+    print(f"Time Taken while Cleaning:- {(time() - startTimeCleaner)/60}")
 
 # Stage 4
-def injectorSQL(databaseConn):
+def injectorSQL(dataGram:dict):
     return
 
 if __name__ == "__main__":
@@ -117,9 +161,11 @@ if __name__ == "__main__":
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     driver = webdriver.Chrome(executable_path = "./assets/chromedriverV112_0_5615_121.exe", options = options)
     try:
-        fetchedData = fetchAllLinks(driver = driver)
-    except selExec.NoSuchElementException as exec:
-        print(f"No Such Element Find \n {exec}")
+        # fetchAllLinks(driver = driver)
+        fetchData(driver = driver)
+    except Exception as exec:
+        print(f"\n\n\nUnknown Error occured:-\n{exec}")
+        exit()
     finally:
         driver.quit()
 
